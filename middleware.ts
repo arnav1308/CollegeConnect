@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
-  const protectedPrefixes = ['/admissions', '/inbox'];
+  const protectedPrefixes = ['/admissions', '/inbox', '/applicant-tickets'];
   const isProtected = protectedPrefixes.some((prefix) => pathname.startsWith(prefix));
 
   if (isProtected) {

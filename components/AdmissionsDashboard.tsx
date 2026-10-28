@@ -53,12 +53,43 @@ export default function AdmissionsDashboard({
   const [recommendations, setRecommendations] = useState<CollegeRecommendation[] | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const [selectedCollegeForTicket, setSelectedCollegeForTicket] = useState<CollegeRecommendation | null>(null);
+  const [seniorAvailability, setSeniorAvailability] = useState<
+    Record<string, { available: boolean; institutionId?: string }>
+  >({});
+
+  const [selectedCollegeForTicket, setSelectedCollegeForTicket] = useState<{
+    item: CollegeRecommendation;
+    institutionId: string;
+  } | null>(null);
   const [ticketTopic, setTicketTopic] = useState('');
   const [ticketQuestion, setTicketQuestion] = useState('');
   const [ticketSubmitting, setTicketSubmitting] = useState(false);
   const [ticketSuccessMsg, setTicketSuccessMsg] = useState<string | null>(null);
   const [ticketErrorMsg, setTicketErrorMsg] = useState<string | null>(null);
+  const [createdTicketId, setCreatedTicketId] = useState<string | null>(null);
+
+  const checkAvailabilityForColleges = async (colleges: CollegeRecommendation[]) => {
+    const availabilityMap: Record<string, { available: boolean; institutionId?: string }> = {};
+    await Promise.all(
+      colleges.map(async (col) => {
+        try {
+          const res = await fetch(`/api/colleges/availability?collegeName=${encodeURIComponent(col.collegeName)}`);
+          if (res.ok) {
+            const data = await res.json();
+            availabilityMap[col.collegeName] = {
+              available: Boolean(data.available),
+              institutionId: data.institutionId,
+            };
+          } else {
+            availabilityMap[col.collegeName] = { available: false };
+          }
+        } catch {
+          availabilityMap[col.collegeName] = { available: false };
+        }
+      })
+    );
+    setSeniorAvailability(availabilityMap);
+  };
 
   const handleCalculateShortlist = async (e: FormEvent) => {
     e.preventDefault();
@@ -91,7 +122,9 @@ export default function AdmissionsDashboard({
         throw new Error(data.error || 'Failed to fetch recommendations.');
       }
 
-      setRecommendations(Array.isArray(data) ? data : data.recommendations || []);
+      const list: CollegeRecommendation[] = Array.isArray(data) ? data : data.recommendations || [];
+      setRecommendations(list);
+      await checkAvailabilityForColleges(list);
     } catch (err: any) {
       setErrorMsg(err.message || 'An unexpected error occurred while communicating with Gemini.');
     } finally {
@@ -119,6 +152,7 @@ export default function AdmissionsDashboard({
     setTicketSubmitting(true);
     setTicketErrorMsg(null);
     setTicketSuccessMsg(null);
+    setCreatedTicketId(null);
 
     try {
       const res = await fetch('/api/tickets', {
@@ -127,11 +161,13 @@ export default function AdmissionsDashboard({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          institution_id: 'inst-iitb',
+          institutionId: selectedCollegeForTicket.institutionId,
+          institution_id: selectedCollegeForTicket.institutionId,
           programme_id: 'prog-iitb-cse',
           requested_year: new Date().getFullYear(),
           topic: ticketTopic,
           question: ticketQuestion,
+          body: ticketQuestion,
         }),
       });
 
@@ -144,13 +180,15 @@ export default function AdmissionsDashboard({
         throw new Error(firstDetailError || data.error || 'Unable to submit inquiry ticket.');
       }
 
+      const ticketId = data.ticket_id || data.ticket?.id;
+      setCreatedTicketId(ticketId);
       setTicketSuccessMsg(data.message || 'Ticket routed successfully to a verified senior!');
       setTimeout(() => {
         setSelectedCollegeForTicket(null);
         setTicketTopic('');
         setTicketQuestion('');
         setTicketSuccessMsg(null);
-      }, 2000);
+      }, 2500);
     } catch (err: any) {
       setTicketErrorMsg(err.message || 'Failed to submit inquiry.');
     } finally {
@@ -344,78 +382,99 @@ export default function AdmissionsDashboard({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredRecommendations.map((item, idx) => (
-              <div
-                key={`${item.collegeName}-${idx}`}
-                className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm hover:shadow-md hover:border-indigo-400 dark:hover:border-indigo-600 transition-all flex flex-col justify-between relative group"
-              >
-                <div>
-                  <div className="flex items-start justify-between gap-3 mb-4">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        className={`text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
-                          item.type === 'Public'
-                            ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-900'
-                            : 'bg-purple-50 text-purple-700 dark:bg-purple-950/70 dark:text-purple-300 border border-purple-200 dark:border-purple-900'
-                        }`}
-                      >
-                        {item.type}
-                      </span>
+            {filteredRecommendations.map((item, idx) => {
+              const availability = seniorAvailability[item.collegeName];
+              const isAvailable = Boolean(availability?.available);
+              const targetInstitutionId = availability?.institutionId || 'inst-iitb';
 
-                      <span
-                        className={`text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
-                          item.feasibility === 'Safe'
-                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900'
-                            : item.feasibility === 'Competitive'
-                            ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-200 dark:border-amber-900'
-                            : 'bg-rose-50 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300 border border-rose-200 dark:border-rose-900'
-                        }`}
-                      >
-                        {item.feasibility}
-                      </span>
+              return (
+                <div
+                  key={`${item.collegeName}-${idx}`}
+                  className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm hover:shadow-md hover:border-indigo-400 dark:hover:border-indigo-600 transition-all flex flex-col justify-between relative group"
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-3 mb-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
+                            item.type === 'Public'
+                              ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-900'
+                              : 'bg-purple-50 text-purple-700 dark:bg-purple-950/70 dark:text-purple-300 border border-purple-200 dark:border-purple-900'
+                          }`}
+                        >
+                          {item.type}
+                        </span>
+
+                        <span
+                          className={`text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
+                            item.feasibility === 'Safe'
+                              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900'
+                              : item.feasibility === 'Competitive'
+                              ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-200 dark:border-amber-900'
+                              : 'bg-rose-50 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300 border border-rose-200 dark:border-rose-900'
+                          }`}
+                        >
+                          {item.feasibility}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-col items-center justify-center w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-100 dark:border-indigo-900 text-indigo-600 dark:text-indigo-400 shrink-0">
+                        <span className="text-sm font-extrabold leading-none">{item.aiMatchScore}</span>
+                        <span className="text-[9px] font-semibold uppercase tracking-tighter opacity-80 mt-0.5">Match</span>
+                      </div>
                     </div>
 
-                    <div className="flex flex-col items-center justify-center w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-100 dark:border-indigo-900 text-indigo-600 dark:text-indigo-400 shrink-0">
-                      <span className="text-sm font-extrabold leading-none">{item.aiMatchScore}</span>
-                      <span className="text-[9px] font-semibold uppercase tracking-tighter opacity-80 mt-0.5">Match</span>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                      {item.collegeName}
+                    </h3>
+
+                    <div className="mt-1 text-xs font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                      {item.branch}
                     </div>
+
+                    <p className="mt-4 text-xs text-slate-600 dark:text-slate-400 leading-relaxed border-t border-slate-100 dark:border-slate-800/80 pt-3">
+                      {item.holisticReview}
+                    </p>
                   </div>
 
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                    {item.collegeName}
-                  </h3>
-
-                  <div className="mt-1 text-xs font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                    {item.branch}
+                  <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between min-h-[44px]">
+                    {isAvailable ? (
+                      <>
+                        <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                          Verified Senior Available
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedCollegeForTicket({
+                              item,
+                              institutionId: targetInstitutionId,
+                            });
+                            setTicketTopic(`Inquiry regarding ${item.branch} at ${item.collegeName}`);
+                            setTicketQuestion('');
+                            setTicketErrorMsg(null);
+                            setTicketSuccessMsg(null);
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 rounded-xl transition-all shadow-xs"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                          </svg>
+                          Ask Senior
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700" />
+                        No Senior Mentor Enrolled Yet
+                      </span>
+                    )}
                   </div>
-
-                  <p className="mt-4 text-xs text-slate-600 dark:text-slate-400 leading-relaxed border-t border-slate-100 dark:border-slate-800/80 pt-3">
-                    {item.holisticReview}
-                  </p>
                 </div>
-
-                <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                  <span className="text-[11px] text-slate-400 font-medium">
-                    Verified Campus Senior Available
-                  </span>
-                  <button
-                    onClick={() => {
-                      setSelectedCollegeForTicket(item);
-                      setTicketTopic(`Inquiry regarding ${item.branch} at ${item.collegeName}`);
-                      setTicketErrorMsg(null);
-                      setTicketSuccessMsg(null);
-                    }}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 rounded-xl transition-all shadow-xs"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                    </svg>
-                    Ask Senior
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -435,10 +494,10 @@ export default function AdmissionsDashboard({
                 Direct Peer Routing
               </span>
               <h2 className="text-xl font-bold text-slate-900 dark:text-white mt-1">
-                Ask a Senior at {selectedCollegeForTicket.collegeName}
+                Ask a Senior at {selectedCollegeForTicket.item.collegeName}
               </h2>
               <div className="mt-2 p-3 bg-slate-50 dark:bg-slate-800/80 rounded-xl text-xs text-slate-700 dark:text-slate-300">
-                <span className="font-semibold">{selectedCollegeForTicket.collegeName}</span> &bull; {selectedCollegeForTicket.branch} ({selectedCollegeForTicket.type})
+                <span className="font-semibold">{selectedCollegeForTicket.item.collegeName}</span> &bull; {selectedCollegeForTicket.item.branch} ({selectedCollegeForTicket.item.type})
               </div>
             </div>
 
@@ -485,8 +544,14 @@ export default function AdmissionsDashboard({
               )}
 
               {ticketSuccessMsg && (
-                <div className="p-3 text-xs bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 rounded-xl">
-                  {ticketSuccessMsg}
+                <div className="p-3 text-xs bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 rounded-xl flex items-center justify-between">
+                  <span>{ticketSuccessMsg}</span>
+                  <a
+                    href="/applicant-tickets"
+                    className="font-bold underline text-emerald-800 dark:text-emerald-200 ml-2 shrink-0"
+                  >
+                    View in My Tickets &rarr;
+                  </a>
                 </div>
               )}
 
@@ -513,3 +578,5 @@ export default function AdmissionsDashboard({
     </div>
   );
 }
+
+export { AdmissionsDashboard };

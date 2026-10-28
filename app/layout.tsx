@@ -38,6 +38,16 @@ export default async function RootLayout({
                 >
                   Admissions Shortlist
                 </Link>
+
+                {session?.role === 'applicant' && (
+                  <Link
+                    href="/applicant-tickets"
+                    className="px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5"
+                  >
+                    <span>My Tickets</span>
+                  </Link>
+                )}
+
                 {session?.role === 'student' && session?.verified_status && (
                   <Link
                     href="/inbox"

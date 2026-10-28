@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import db from '@/lib/db';
 import { getDemoSession } from '@/lib/auth';
-import RespondentInbox, { type AssignedTicketItem } from '@/components/RespondentInbox';
+import { RespondentInbox, type AssignedTicketItem } from '@/components/RespondentInbox';
 
 export default async function InboxPage() {
   const session = await getDemoSession();

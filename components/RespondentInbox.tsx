@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef, type FormEvent } from 'react';
+import { useState } from 'react';
 import type { TicketStatus, AssignmentStatus } from '@/types';
+import TicketChat from './TicketChat';
 
 export interface AssignedTicketItem {
   id: string;
@@ -15,14 +16,6 @@ export interface AssignedTicketItem {
   programme_name: string;
   assigned_at: string;
   applicant_alias: string;
-}
-
-export interface TicketThreadMessage {
-  id: string;
-  sender_role: 'applicant' | 'respondent';
-  sender_display_alias: string;
-  body: string;
-  created_at: string;
 }
 
 interface RespondentInboxProps {
@@ -40,33 +33,9 @@ export default function RespondentInbox({
   );
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [loadingAction, setLoadingAction] = useState<boolean>(false);
-
-  const [messages, setMessages] = useState<TicketThreadMessage[]>([]);
-  const [replyText, setReplyText] = useState('');
-  const [sendingReply, setSendingReply] = useState(false);
   const [inboxError, setInboxError] = useState<string | null>(null);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
   const activeTicket = tickets.find((t) => t.id === selectedTicketId) || null;
-
-  useEffect(() => {
-    if (activeTicket) {
-      setMessages([
-        {
-          id: 'initial-question',
-          sender_role: 'applicant',
-          sender_display_alias: activeTicket.applicant_alias,
-          body: activeTicket.question,
-          created_at: activeTicket.assigned_at,
-        },
-      ]);
-    }
-  }, [selectedTicketId, activeTicket]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
 
   const filteredTickets = tickets.filter((t) => {
     if (filterStatus === 'pending') return t.assignment_status === 'pending';
@@ -88,61 +57,22 @@ export default function RespondentInbox({
         )
       );
 
-      if (userAuthToken) {
-        await fetch(`/api/tickets/${ticketId}/claim`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${userAuthToken}`,
-          },
-        });
+      const res = await fetch(`/api/tickets/${ticketId}/claim`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(userAuthToken ? { Authorization: `Bearer ${userAuthToken}` } : {}),
+        },
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to claim ticket on server.');
       }
     } catch (err: any) {
       setInboxError(err.message || 'Failed to claim ticket.');
     } finally {
       setLoadingAction(false);
-    }
-  };
-
-  const handleSendMessage = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!replyText.trim() || !activeTicket) return;
-
-    setSendingReply(true);
-    setInboxError(null);
-
-    const newMessage: TicketThreadMessage = {
-      id: `msg-${Date.now()}`,
-      sender_role: 'respondent',
-      sender_display_alias: 'You (Verified Senior)',
-      body: replyText.trim(),
-      created_at: new Date().toISOString(),
-    };
-
-    try {
-      setMessages((prev) => [...prev, newMessage]);
-      setReplyText('');
-
-      setTickets((prev) =>
-        prev.map((t) =>
-          t.id === activeTicket.id ? { ...t, ticket_status: 'answered' } : t
-        )
-      );
-
-      if (userAuthToken) {
-        await fetch(`/api/tickets/${activeTicket.id}/messages`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${userAuthToken}`,
-          },
-          body: JSON.stringify({ body: newMessage.body }),
-        });
-      }
-    } catch (err: any) {
-      setInboxError(err.message || 'Could not deliver response message.');
-    } finally {
-      setSendingReply(false);
     }
   };
 
@@ -278,7 +208,7 @@ export default function RespondentInbox({
 
         <div className="lg:col-span-7 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col overflow-hidden">
           {activeTicket ? (
-            <>
+            <div className="flex flex-col h-full">
               <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/70 dark:bg-slate-800/40">
                 <div>
                   <div className="flex items-center gap-2">
@@ -290,7 +220,7 @@ export default function RespondentInbox({
                     </span>
                   </div>
                   <div className="text-xs text-slate-500 mt-0.5">
-                    {activeTicket.institution_name} • {activeTicket.programme_name}
+                    {activeTicket.institution_name} &bull; {activeTicket.programme_name}
                   </div>
                 </div>
 
@@ -316,80 +246,30 @@ export default function RespondentInbox({
                     </button>
                   ) : (
                     <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                      ✓ Resolved
+                      &check; Resolved
                     </span>
                   )}
                 </div>
               </div>
 
-              <div className="px-4 py-2 bg-slate-100/70 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2 text-[11px] text-slate-600 dark:text-slate-400">
-                <svg className="w-3.5 h-3.5 text-indigo-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-                <span>
-                  <strong>Strict Privacy Protected:</strong> Applicants cannot see your identity, student ID, or personal data.
-                </span>
+              <div className="flex-1">
+                <TicketChat
+                  key={activeTicket.id}
+                  ticketId={activeTicket.id}
+                  disabled={activeTicket.assignment_status === 'pending'}
+                  disabledNotice="Please click 'Claim Ticket' above to accept this inquiry and begin replying."
+                  onMessageSent={() => {
+                    setTickets((prev) =>
+                      prev.map((t) =>
+                        t.id === activeTicket.id ? { ...t, ticket_status: 'answered' } : t
+                      )
+                    );
+                  }}
+                />
               </div>
-
-              <div className="flex-1 p-4 overflow-y-auto space-y-4 max-h-[420px] bg-white dark:bg-slate-900">
-                {messages.map((msg) => {
-                  const isSenior = msg.sender_role === 'respondent';
-                  return (
-                    <div
-                      key={msg.id}
-                      className={`flex flex-col ${isSenior ? 'items-end' : 'items-start'}`}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                          {msg.sender_display_alias}
-                        </span>
-                        <span className="text-[10px] text-slate-400">
-                          {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                      <div
-                        className={`max-w-md rounded-2xl px-4 py-2.5 text-xs leading-relaxed ${
-                          isSenior
-                            ? 'bg-indigo-600 text-white rounded-br-none'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-bl-none'
-                        }`}
-                      >
-                        {msg.body}
-                      </div>
-                    </div>
-                  );
-                })}
-                <div ref={messagesEndRef} />
-              </div>
-
-              <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
-                {activeTicket.assignment_status === 'pending' ? (
-                  <div className="p-3 text-center bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl text-xs text-amber-800 dark:text-amber-300">
-                    Please click <strong>"Claim Ticket"</strong> above to accept this inquiry and begin replying.
-                  </div>
-                ) : (
-                  <form onSubmit={handleSendMessage} className="flex gap-2">
-                    <input
-                      type="text"
-                      value={replyText}
-                      onChange={(e) => setReplyText(e.target.value)}
-                      placeholder="Type your anonymous reply to the prospective student..."
-                      disabled={sendingReply}
-                      className="flex-1 px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
-                    />
-                    <button
-                      type="submit"
-                      disabled={sendingReply || !replyText.trim()}
-                      className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-50 rounded-lg transition-colors shadow-xs"
-                    >
-                      {sendingReply ? 'Sending...' : 'Reply'}
-                    </button>
-                  </form>
-                )}
-              </div>
-            </>
+            </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-slate-400 text-xs">
+            <div className="flex-1 flex items-center justify-center text-slate-400 text-xs p-12">
               Select an inquiry ticket on the left to review and respond.
             </div>
           )}
@@ -398,3 +278,5 @@ export default function RespondentInbox({
     </div>
   );
 }
+
+export { RespondentInbox };

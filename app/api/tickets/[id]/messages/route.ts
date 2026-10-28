@@ -16,32 +16,46 @@ const PostMessageSchema = z.object({
     .trim(),
 });
 
-function verifyTicketAccess(ticketId: string, userId: string) {
-  const ticketStmt = db.prepare('SELECT id, applicant_id, status FROM tickets WHERE id = ?');
-  const ticket = ticketStmt.get(ticketId) as { id: string; applicant_id: string; status: string } | undefined;
-
-  if (!ticket) {
-    return { authorized: false, notFound: true };
-  }
-
-  if (ticket.applicant_id === userId) {
-    return { authorized: true, role: 'applicant' as const, ticket };
-  }
-
-  const assignmentStmt = db.prepare(`
-    SELECT id, respondent_id, status 
-    FROM ticket_assignments 
-    WHERE ticket_id = ? AND respondent_id = ?
+function verifyTicketPrivacyAccess(ticketId: string, userId: string) {
+  const checkStmt = db.prepare(`
+    SELECT 
+      t.id AS ticket_id,
+      t.applicant_id,
+      t.status AS ticket_status,
+      ta.respondent_id,
+      ta.status AS assignment_status
+    FROM tickets t
+    LEFT JOIN ticket_assignments ta ON ta.ticket_id = t.id
+    WHERE t.id = ?
   `);
-  const assignment = assignmentStmt.get(ticketId, userId) as
-    | { id: string; respondent_id: string; status: string }
+
+  const row = checkStmt.get(ticketId) as
+    | {
+        ticket_id: string;
+        applicant_id: string;
+        ticket_status: string;
+        respondent_id: string | null;
+        assignment_status: string | null;
+      }
     | undefined;
 
-  if (assignment && (assignment.status === 'claimed' || assignment.status === 'pending')) {
-    return { authorized: true, role: 'respondent' as const, ticket, assignment };
+  if (!row) {
+    return { notFound: true, authorized: false };
   }
 
-  return { authorized: false, notFound: false };
+  const isApplicant = row.applicant_id === userId;
+  const isRespondent = row.respondent_id === userId;
+
+  if (!isApplicant && !isRespondent) {
+    return { notFound: false, authorized: false };
+  }
+
+  return {
+    notFound: false,
+    authorized: true,
+    role: isApplicant ? ('applicant' as const) : ('respondent' as const),
+    ticketData: row,
+  };
 }
 
 export async function GET(req: NextRequest, context: RouteContext) {
@@ -56,13 +70,13 @@ export async function GET(req: NextRequest, context: RouteContext) {
       );
     }
 
-    const access = verifyTicketAccess(ticketId, session.userId);
+    const authCheck = verifyTicketPrivacyAccess(ticketId, session.userId);
 
-    if (access.notFound) {
+    if (authCheck.notFound) {
       return NextResponse.json({ success: false, error: 'Ticket not found' }, { status: 404 });
     }
 
-    if (!access.authorized) {
+    if (!authCheck.authorized || !authCheck.ticketData) {
       return NextResponse.json(
         {
           success: false,
@@ -73,17 +87,28 @@ export async function GET(req: NextRequest, context: RouteContext) {
     }
 
     const messagesStmt = db.prepare(`
-      SELECT id, ticket_id, sender_user_id, body, created_at 
+      SELECT 
+        id, 
+        ticket_id, 
+        sender_user_id, 
+        body, 
+        created_at 
       FROM ticket_messages 
       WHERE ticket_id = ? 
       ORDER BY created_at ASC
     `);
 
-    const rows = messagesStmt.all(ticketId) as any[];
+    const rows = messagesStmt.all(ticketId) as Array<{
+      id: string;
+      ticket_id: string;
+      sender_user_id: string;
+      body: string;
+      created_at: string;
+    }>;
 
     const sanitizedMessages = rows.map((msg) => {
       const isSenderSelf = msg.sender_user_id === session.userId;
-      const isSenderApplicant = msg.sender_user_id === access.ticket?.applicant_id;
+      const isSenderApplicant = msg.sender_user_id === authCheck.ticketData!.applicant_id;
 
       return {
         id: msg.id,
@@ -108,7 +133,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
       { status: 200 }
     );
   } catch (err: any) {
-    console.error('[Ticket Messages GET SQLite Exception]:', err);
+    console.error('[Ticket Messages GET Privacy SQLite Exception]:', err);
     return NextResponse.json(
       { success: false, error: 'Internal server error while retrieving messages' },
       { status: 500 }
@@ -128,13 +153,13 @@ export async function POST(req: NextRequest, context: RouteContext) {
       );
     }
 
-    const access = verifyTicketAccess(ticketId, session.userId);
+    const authCheck = verifyTicketPrivacyAccess(ticketId, session.userId);
 
-    if (access.notFound) {
+    if (authCheck.notFound) {
       return NextResponse.json({ success: false, error: 'Ticket not found' }, { status: 404 });
     }
 
-    if (!access.authorized) {
+    if (!authCheck.authorized || !authCheck.ticketData) {
       return NextResponse.json(
         {
           success: false,
@@ -169,9 +194,13 @@ export async function POST(req: NextRequest, context: RouteContext) {
 
     insertMessageStmt.run(messageId, ticketId, session.userId, body, now);
 
-    if (access.role === 'respondent' && access.ticket?.status === 'claimed') {
-      const updateTicketStmt = db.prepare('UPDATE tickets SET status = ?, updated_at = ? WHERE id = ?');
-      updateTicketStmt.run('answered', now, ticketId);
+    if (authCheck.role === 'respondent' && authCheck.ticketData.ticket_status !== 'resolved') {
+      const updateTicketStmt = db.prepare(`
+        UPDATE tickets 
+        SET status = 'answered', updated_at = ? 
+        WHERE id = ?
+      `);
+      updateTicketStmt.run(now, ticketId);
     }
 
     return NextResponse.json(
@@ -181,14 +210,15 @@ export async function POST(req: NextRequest, context: RouteContext) {
           id: messageId,
           body,
           created_at: now,
-          sender_role: access.role,
+          is_self: true,
+          sender_role: authCheck.role,
           sender_display_alias: 'You',
         },
       },
       { status: 201 }
     );
   } catch (err: any) {
-    console.error('[Ticket Messages POST SQLite Exception]:', err);
+    console.error('[Ticket Messages POST Privacy SQLite Exception]:', err);
     return NextResponse.json(
       { success: false, error: 'Internal server error while posting message' },
       { status: 500 }
