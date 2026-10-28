@@ -10,14 +10,12 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const resolvedSearchParams = await Promise.resolve(searchParams);
   const redirectedFrom = resolvedSearchParams?.redirectedFrom;
 
-  // Server Action for Applicant Demo
   async function loginAsApplicant() {
     'use server';
     await setDemoSession('applicant');
     redirect(redirectedFrom || '/admissions');
   }
 
-  // Server Action for Senior Mentor Demo
   async function loginAsSenior() {
     'use server';
     await setDemoSession('student');
@@ -51,7 +49,6 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-lg">
         <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl space-y-4">
-          {/* Persona 1: Applicant */}
           <form action={loginAsApplicant}>
             <button
               type="submit"
@@ -81,7 +78,6 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             </button>
           </form>
 
-          {/* Persona 2: Verified Senior Mentor */}
           <form action={loginAsSenior}>
             <button
               type="submit"

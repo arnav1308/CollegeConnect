@@ -1,12 +1,3 @@
-/**
- * CollegeConnect: SQLite Database Initialization & Seeding Script
- * 
- * Usage:
- *   node scripts/init_db.js
- * 
- * Target: database.sqlite in the project root
- */
-
 const Database = require('better-sqlite3');
 const path = require('path');
 
@@ -15,11 +6,9 @@ const db = new Database(dbPath);
 
 console.log(`[Database Init] Connecting to SQLite at: ${dbPath}`);
 
-// Enable foreign keys and WAL journal mode
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
-// 1. Drop existing tables in reverse dependency order
 console.log('[Database Init] Dropping legacy tables if present...');
 db.exec(`
   DROP TABLE IF EXISTS ticket_messages;
@@ -32,7 +21,6 @@ db.exec(`
   DROP TABLE IF EXISTS institutions;
 `);
 
-// 2. Create Schema
 console.log('[Database Init] Creating relational tables...');
 db.exec(`
   CREATE TABLE institutions (
@@ -123,11 +111,9 @@ db.exec(`
   CREATE INDEX idx_assignments_respondent ON ticket_assignments(respondent_id, status);
 `);
 
-// 3. Seed Mock Data
 console.log('[Database Init] Seeding mock institutions, programs, and cutoffs...');
 const now = new Date().toISOString();
 
-// Seed Institutions
 const insertInstitution = db.prepare(`
   INSERT INTO institutions (id, canonical_name, city, state, created_at)
   VALUES (?, ?, ?, ?, ?)
@@ -136,7 +122,6 @@ insertInstitution.run('inst-iitb', 'Indian Institute of Technology Bombay', 'Mum
 insertInstitution.run('inst-nitt', 'National Institute of Technology Tiruchirappalli', 'Tiruchirappalli', 'Tamil Nadu', now);
 insertInstitution.run('inst-iitd', 'Indian Institute of Technology Delhi', 'New Delhi', 'Delhi', now);
 
-// Seed Programmes
 const insertProgramme = db.prepare(`
   INSERT INTO programmes (id, institution_id, degree, branch_name, created_at)
   VALUES (?, ?, ?, ?, ?)
@@ -147,7 +132,6 @@ insertProgramme.run('prog-nitt-cse', 'inst-nitt', 'B.Tech', 'Computer Science an
 insertProgramme.run('prog-nitt-ece', 'inst-nitt', 'B.Tech', 'Electronics and Communication Engineering', now);
 insertProgramme.run('prog-iitd-cse', 'inst-iitd', 'B.Tech', 'Computer Science and Engineering', now);
 
-// Seed Admission Routes
 const insertRoute = db.prepare(`
   INSERT INTO admission_routes (id, exam_name, authority, year, created_at)
   VALUES (?, ?, ?, ?, ?)
@@ -155,7 +139,6 @@ const insertRoute = db.prepare(`
 insertRoute.run('route-jeeadv-2024', 'JEE Advanced', 'JoSAA', 2024, now);
 insertRoute.run('route-jeemain-2024', 'JEE Main', 'CSAB', 2024, now);
 
-// Seed Cutoff Records (Deterministic counseling historical data)
 const insertCutoff = db.prepare(`
   INSERT INTO cutoff_records (id, route_id, institution_id, programme_id, round, seat_category, quota, rank_type, opening_rank, closing_rank, created_at)
   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -168,16 +151,13 @@ insertCutoff.run('cut-5', 'route-jeemain-2024', 'inst-nitt', 'prog-nitt-ece', 6,
 insertCutoff.run('cut-6', 'route-jeeadv-2024', 'inst-iitb', 'prog-iitb-cse', 6, 'EWS', 'AI', 'Category Rank', 2, 18, now);
 insertCutoff.run('cut-7', 'route-jeeadv-2024', 'inst-iitb', 'prog-iitb-cse', 6, 'OBC-NCL', 'AI', 'Category Rank', 10, 55, now);
 
-// Seed Mock Profiles (1 Applicant, 1 Verified Senior Mentor)
 console.log('[Database Init] Seeding mock demo profiles...');
 const insertProfile = db.prepare(`
   INSERT INTO profiles (user_id, display_name, role, verified_status, availability, institution_id, programme_id, admission_year, created_at)
   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `);
-// 1. Applicant Profile
 insertProfile.run('user-applicant-1', 'Rahul Sharma (Applicant)', 'applicant', 0, 1, null, null, null, now);
 
-// 2. Verified Senior Profile (IIT Bombay CSE)
 insertProfile.run('user-student-senior-1', 'Aman Verma (IIT Bombay CSE 3rd Year)', 'student', 1, 1, 'inst-iitb', 'prog-iitb-cse', 2022, now);
 
 console.log('✅ [Database Init] database.sqlite created and seeded successfully!');

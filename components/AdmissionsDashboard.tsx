@@ -36,7 +36,6 @@ export default function AdmissionsDashboard({
   initialCategory = 'OPEN',
   userAuthToken,
 }: AdmissionsDashboardProps) {
-  // Query state
   const [examPathway, setExamPathway] = useState(initialExam);
   const [rankInput, setRankInput] = useState<string>('12000');
   const [category, setCategory] = useState(initialCategory);
@@ -48,15 +47,12 @@ export default function AdmissionsDashboard({
     'Artificial Intelligence and Machine Learning (AI/ML)'
   );
 
-  // Search filter inside recommendations
   const [searchFilter, setSearchFilter] = useState('');
 
-  // Results state
   const [loading, setLoading] = useState(false);
   const [recommendations, setRecommendations] = useState<CollegeRecommendation[] | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Ticket creation modal state
   const [selectedCollegeForTicket, setSelectedCollegeForTicket] = useState<CollegeRecommendation | null>(null);
   const [ticketTopic, setTicketTopic] = useState('');
   const [ticketQuestion, setTicketQuestion] = useState('');
@@ -64,7 +60,6 @@ export default function AdmissionsDashboard({
   const [ticketSuccessMsg, setTicketSuccessMsg] = useState<string | null>(null);
   const [ticketErrorMsg, setTicketErrorMsg] = useState<string | null>(null);
 
-  // Execute Gemini AI Shortlist Evaluation
   const handleCalculateShortlist = async (e: FormEvent) => {
     e.preventDefault();
     const parsedRank = parseInt(rankInput, 10);
@@ -104,7 +99,6 @@ export default function AdmissionsDashboard({
     }
   };
 
-  // Filter recommendations in real-time
   const filteredRecommendations = useMemo(() => {
     if (!recommendations) return [];
     if (!searchFilter.trim()) return recommendations;
@@ -118,7 +112,6 @@ export default function AdmissionsDashboard({
     );
   }, [recommendations, searchFilter]);
 
-  // Submit Inquiry Ticket to Senior
   const handleCreateTicket = async (e: FormEvent) => {
     e.preventDefault();
     if (!selectedCollegeForTicket) return;
@@ -167,7 +160,6 @@ export default function AdmissionsDashboard({
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 font-sans">
-      {/* Top Hero Heading */}
       <div className="pb-6 border-b border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/70 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800 mb-2">
@@ -191,10 +183,8 @@ export default function AdmissionsDashboard({
         )}
       </div>
 
-      {/* Minimalist, Well-Padded Input Card */}
       <div className="mt-6 bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 sm:p-8">
         <form onSubmit={handleCalculateShortlist} className="space-y-6">
-          {/* Row 1: Exam, Rank, Category, Quota */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
@@ -261,7 +251,6 @@ export default function AdmissionsDashboard({
             </div>
           </div>
 
-          {/* Row 2: Dual Branch Preferences */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-1 border-t border-slate-100 dark:border-slate-800">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
@@ -300,7 +289,6 @@ export default function AdmissionsDashboard({
             </div>
           </div>
 
-          {/* Submit Action */}
           <div className="flex justify-end pt-2">
             <button
               type="submit"
@@ -329,7 +317,6 @@ export default function AdmissionsDashboard({
         </div>
       )}
 
-      {/* Results Modern Card Grid */}
       {recommendations && (
         <div className="mt-10">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -356,7 +343,6 @@ export default function AdmissionsDashboard({
             </div>
           </div>
 
-          {/* 3-Column Modern Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredRecommendations.map((item, idx) => (
               <div
@@ -364,7 +350,6 @@ export default function AdmissionsDashboard({
                 className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm hover:shadow-md hover:border-indigo-400 dark:hover:border-indigo-600 transition-all flex flex-col justify-between relative group"
               >
                 <div>
-                  {/* Top Badges & Match Score */}
                   <div className="flex items-start justify-between gap-3 mb-4">
                     <div className="flex flex-wrap items-center gap-2">
                       <span
@@ -390,14 +375,12 @@ export default function AdmissionsDashboard({
                       </span>
                     </div>
 
-                    {/* Circular AI Match Score Badge */}
                     <div className="flex flex-col items-center justify-center w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-100 dark:border-indigo-900 text-indigo-600 dark:text-indigo-400 shrink-0">
                       <span className="text-sm font-extrabold leading-none">{item.aiMatchScore}</span>
                       <span className="text-[9px] font-semibold uppercase tracking-tighter opacity-80 mt-0.5">Match</span>
                     </div>
                   </div>
 
-                  {/* College Name & Branch */}
                   <h3 className="text-lg font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                     {item.collegeName}
                   </h3>
@@ -407,13 +390,11 @@ export default function AdmissionsDashboard({
                     {item.branch}
                   </div>
 
-                  {/* Holistic Review Paragraph */}
                   <p className="mt-4 text-xs text-slate-600 dark:text-slate-400 leading-relaxed border-t border-slate-100 dark:border-slate-800/80 pt-3">
                     {item.holisticReview}
                   </p>
                 </div>
 
-                {/* Card Action Footer */}
                 <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                   <span className="text-[11px] text-slate-400 font-medium">
                     Verified Campus Senior Available
@@ -439,7 +420,6 @@ export default function AdmissionsDashboard({
         </div>
       )}
 
-      {/* Ticket Creation Modal */}
       {selectedCollegeForTicket && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-200 dark:border-slate-800 relative">

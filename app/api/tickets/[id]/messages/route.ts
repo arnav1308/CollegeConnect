@@ -16,9 +16,7 @@ const PostMessageSchema = z.object({
     .trim(),
 });
 
-// Helper: Authorize membership using manual SQL queries in SQLite
 function verifyTicketAccess(ticketId: string, userId: string) {
-  // Check if user is the applicant
   const ticketStmt = db.prepare('SELECT id, applicant_id, status FROM tickets WHERE id = ?');
   const ticket = ticketStmt.get(ticketId) as { id: string; applicant_id: string; status: string } | undefined;
 
@@ -30,7 +28,6 @@ function verifyTicketAccess(ticketId: string, userId: string) {
     return { authorized: true, role: 'applicant' as const, ticket };
   }
 
-  // Check if user is the assigned respondent
   const assignmentStmt = db.prepare(`
     SELECT id, respondent_id, status 
     FROM ticket_assignments 
@@ -59,7 +56,6 @@ export async function GET(req: NextRequest, context: RouteContext) {
       );
     }
 
-    // Manual SQLite Membership Verification
     const access = verifyTicketAccess(ticketId, session.userId);
 
     if (access.notFound) {
@@ -76,7 +72,6 @@ export async function GET(req: NextRequest, context: RouteContext) {
       );
     }
 
-    // Retrieve thread messages chronologically
     const messagesStmt = db.prepare(`
       SELECT id, ticket_id, sender_user_id, body, created_at 
       FROM ticket_messages 
@@ -86,7 +81,6 @@ export async function GET(req: NextRequest, context: RouteContext) {
 
     const rows = messagesStmt.all(ticketId) as any[];
 
-    // Sanitize aliases to preserve mutual anonymity
     const sanitizedMessages = rows.map((msg) => {
       const isSenderSelf = msg.sender_user_id === session.userId;
       const isSenderApplicant = msg.sender_user_id === access.ticket?.applicant_id;
@@ -134,7 +128,6 @@ export async function POST(req: NextRequest, context: RouteContext) {
       );
     }
 
-    // Manual SQLite Membership Verification
     const access = verifyTicketAccess(ticketId, session.userId);
 
     if (access.notFound) {
@@ -169,7 +162,6 @@ export async function POST(req: NextRequest, context: RouteContext) {
     const messageId = `msg-${crypto.randomUUID().slice(0, 8)}`;
     const now = new Date().toISOString();
 
-    // Insert message into SQLite
     const insertMessageStmt = db.prepare(`
       INSERT INTO ticket_messages (id, ticket_id, sender_user_id, body, created_at)
       VALUES (?, ?, ?, ?, ?)
@@ -177,7 +169,6 @@ export async function POST(req: NextRequest, context: RouteContext) {
 
     insertMessageStmt.run(messageId, ticketId, session.userId, body, now);
 
-    // If respondent replied on a claimed ticket, advance status to 'answered'
     if (access.role === 'respondent' && access.ticket?.status === 'claimed') {
       const updateTicketStmt = db.prepare('UPDATE tickets SET status = ?, updated_at = ? WHERE id = ?');
       updateTicketStmt.run('answered', now, ticketId);

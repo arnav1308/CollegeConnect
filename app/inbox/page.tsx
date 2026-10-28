@@ -63,7 +63,6 @@ export default async function InboxPage() {
     );
   }
 
-  // Query assigned tickets for this student from SQLite
   const assignmentsStmt = db.prepare(`
     SELECT 
       ta.id AS assignment_id,

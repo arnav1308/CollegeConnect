@@ -30,9 +30,6 @@ export const DEMO_PROFILES: Record<'applicant' | 'student', DemoSession> = {
   },
 };
 
-/**
- * Sets the mock user session cookie
- */
 export async function setDemoSession(
   role: 'applicant' | 'student',
   customUserId?: string
@@ -48,15 +45,12 @@ export async function setDemoSession(
     path: '/',
     httpOnly: true,
     sameSite: 'lax',
-    maxAge: 60 * 60 * 24 * 7, // 7 days
+    maxAge: 60 * 60 * 24 * 7,
   });
 
   return session;
 }
 
-/**
- * Retrieves and parses the mock user session from cookies
- */
 export async function getDemoSession(): Promise<DemoSession | null> {
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get(COOKIE_NAME);
@@ -76,9 +70,6 @@ export async function getDemoSession(): Promise<DemoSession | null> {
   }
 }
 
-/**
- * Clears the demo session cookie
- */
 export async function clearDemoSession(): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.set(COOKIE_NAME, '', {

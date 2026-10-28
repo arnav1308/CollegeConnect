@@ -17,7 +17,6 @@ async function handleClaim(req: NextRequest, context: RouteContext) {
       );
     }
 
-    // 1. Verify mock session
     const session = await getDemoSession();
 
     if (!session || !session.userId) {
@@ -37,7 +36,6 @@ async function handleClaim(req: NextRequest, context: RouteContext) {
     const respondentId = session.userId;
     const now = new Date().toISOString();
 
-    // 2. Atomic SQLite Update: Check changes to ensure no race condition
     const updateAssignmentStmt = db.prepare(`
       UPDATE ticket_assignments
       SET status = 'claimed', updated_at = ?
@@ -48,7 +46,6 @@ async function handleClaim(req: NextRequest, context: RouteContext) {
 
     const info = updateAssignmentStmt.run(now, ticketId, respondentId);
 
-    // If changes === 0, the ticket assignment was either already claimed, cancelled, or not pending
     if (info.changes === 0) {
       return NextResponse.json(
         {
@@ -59,7 +56,6 @@ async function handleClaim(req: NextRequest, context: RouteContext) {
       );
     }
 
-    // 3. Update the parent ticket status to 'claimed'
     const updateTicketStmt = db.prepare(`
       UPDATE tickets
       SET status = 'claimed', updated_at = ?

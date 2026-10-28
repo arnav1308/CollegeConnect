@@ -13,7 +13,6 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    // Accept user inputs with sensible defaults
     const examPathway = body.examPathway || body.exam_name || 'JEE Main';
     const rank = body.rank ? Number(body.rank) : 15000;
     const category = body.category || body.seat_category || 'OPEN';
@@ -52,7 +51,6 @@ Do not return any markdown formatting like \`\`\`json. Return only the raw array
 
     const apiKey = process.env.GEMINI_API_KEY;
 
-    // Secure server-side call to Gemini API with model cascade
     if (apiKey && apiKey !== 'your_gemini_api_key_here') {
       const candidateModels = [
         'gemini-2.5-flash',
@@ -111,12 +109,10 @@ Do not return any markdown formatting like \`\`\`json. Return only the raw array
             }
           }
         } catch {
-          // If a candidate model or network connection drops, continue to next candidate or fallback
         }
       }
     }
 
-    // High-fidelity fallback recommendations strictly respecting the mathematical rank tier list
     const fallbackRecommendations: CollegeRecommendation[] = getTierAccurateRecommendations(
       rank,
       primaryBranch,
@@ -133,9 +129,6 @@ Do not return any markdown formatting like \`\`\`json. Return only the raw array
   }
 }
 
-/**
- * Returns mathematically valid recommendations strictly matching the 2026 rank tier list
- */
 function getTierAccurateRecommendations(
   rank: number,
   primaryBranch: string,
@@ -245,7 +238,6 @@ function getTierAccurateRecommendations(
   }
 
   if (rank <= 15000) {
-    // Mathematically valid options for Rank 5,000 - 15,000 (e.g. rank 12,000)
     return [
       {
         collegeName: 'NIT Jalandhar',
@@ -345,7 +337,6 @@ function getTierAccurateRecommendations(
     ];
   }
 
-  // 30,000+ Accessible / State-level options
   return [
     {
       collegeName: 'KIIT Bhubaneswar',

@@ -3,7 +3,6 @@ import Link from 'next/link';
 export default function LandingPage() {
   return (
     <div className="flex-1 flex flex-col font-sans">
-      {/* Hero Section */}
       <section className="relative overflow-hidden pt-20 pb-24 md:pt-28 md:pb-32 bg-radial-gradient">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800 mb-6">
@@ -60,7 +59,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* The Problem vs The Solution Grid */}
       <section className="py-20 bg-white dark:bg-slate-900 border-y border-slate-200 dark:border-slate-800">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-16">
@@ -73,7 +71,6 @@ export default function LandingPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* The Broken Reality */}
             <div className="p-8 rounded-2xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200/80 dark:border-rose-900/60">
               <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-900/50 flex items-center justify-center text-rose-600 dark:text-rose-400 font-bold mb-4">
                 ✕
@@ -97,7 +94,6 @@ export default function LandingPage() {
               </ul>
             </div>
 
-            {/* The CollegeConnect Solution */}
             <div className="p-8 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-900/60">
               <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-bold mb-4">
                 ✓
@@ -124,7 +120,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Core Workflow Steps */}
       <section className="py-20 bg-slate-50 dark:bg-slate-950">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-16">
@@ -176,7 +171,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Call to Action Footer Banner */}
       <section className="py-16 bg-gradient-to-br from-indigo-900 via-indigo-950 to-slate-950 text-white text-center">
         <div className="max-w-4xl mx-auto px-4">
           <h2 className="text-3xl font-extrabold tracking-tight">
