@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { formatDate } from '@/lib/date';
 import TicketChat from './TicketChat';
 
 export interface ApplicantTicketItem {
@@ -147,7 +148,7 @@ export default function ApplicantTicketsView({
 
                 <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500">
                   <span>{ticket.programme_name}</span>
-                  <span>{new Date(ticket.created_at).toLocaleDateString()}</span>
+                  <span suppressHydrationWarning>{formatDate(ticket.created_at)}</span>
                 </div>
               </div>
             );

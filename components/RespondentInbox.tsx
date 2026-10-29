@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { TicketStatus, AssignmentStatus } from '@/types';
+import { formatDate } from '@/lib/date';
 import TicketChat from './TicketChat';
 
 export interface AssignedTicketItem {
@@ -198,7 +199,7 @@ export default function RespondentInbox({
 
                   <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500">
                     <span>{ticket.programme_name}</span>
-                    <span>{new Date(ticket.assigned_at).toLocaleDateString()}</span>
+                    <span suppressHydrationWarning>{formatDate(ticket.assigned_at)}</span>
                   </div>
                 </div>
               );

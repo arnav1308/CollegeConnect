@@ -1,5 +1,6 @@
 const Database = require('better-sqlite3');
 const path = require('path');
+const bcrypt = require('bcryptjs');
 
 const dbPath = path.join(__dirname, '..', 'database.sqlite');
 const db = new Database(dbPath);
@@ -11,11 +12,13 @@ db.pragma('foreign_keys = ON');
 
 console.log('[Database Init] Dropping legacy tables if present...');
 db.exec(`
+  DROP TABLE IF EXISTS ratings;
   DROP TABLE IF EXISTS ticket_messages;
   DROP TABLE IF EXISTS ticket_assignments;
   DROP TABLE IF EXISTS tickets;
   DROP TABLE IF EXISTS cutoff_records;
   DROP TABLE IF EXISTS profiles;
+  DROP TABLE IF EXISTS users;
   DROP TABLE IF EXISTS admission_routes;
   DROP TABLE IF EXISTS programmes;
   DROP TABLE IF EXISTS institutions;
@@ -63,12 +66,26 @@ db.exec(`
     created_at TEXT NOT NULL
   );
 
+  CREATE TABLE users (
+    id TEXT PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL CHECK(role IN ('applicant', 'student', 'moderator')),
+    created_at TEXT NOT NULL
+  );
+
   CREATE TABLE profiles (
-    user_id TEXT PRIMARY KEY,
+    user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    email TEXT UNIQUE,
+    password_hash TEXT,
     display_name TEXT NOT NULL,
     role TEXT NOT NULL CHECK(role IN ('applicant', 'student', 'moderator')),
     verified_status INTEGER NOT NULL DEFAULT 0,
+    is_verified INTEGER NOT NULL DEFAULT 0,
     availability INTEGER NOT NULL DEFAULT 1,
+    college TEXT,
+    branch TEXT,
+    grad_year TEXT,
     institution_id TEXT REFERENCES institutions(id) ON DELETE SET NULL,
     programme_id TEXT REFERENCES programmes(id) ON DELETE SET NULL,
     admission_year INTEGER,
@@ -106,9 +123,39 @@ db.exec(`
     created_at TEXT NOT NULL
   );
 
+  CREATE TABLE ratings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    senior_id TEXT NOT NULL,
+    college TEXT NOT NULL,
+    academics INTEGER NOT NULL CHECK(academics BETWEEN 1 AND 5),
+    faculty INTEGER NOT NULL CHECK(faculty BETWEEN 1 AND 5),
+    placements INTEGER NOT NULL CHECK(placements BETWEEN 1 AND 5),
+    internships INTEGER NOT NULL CHECK(internships BETWEEN 1 AND 5),
+    hostel INTEGER NOT NULL CHECK(hostel BETWEEN 1 AND 5),
+    mess INTEGER NOT NULL CHECK(mess BETWEEN 1 AND 5),
+    campus_life INTEGER NOT NULL CHECK(campus_life BETWEEN 1 AND 5),
+    peer_group INTEGER NOT NULL CHECK(peer_group BETWEEN 1 AND 5),
+    infrastructure INTEGER NOT NULL CHECK(infrastructure BETWEEN 1 AND 5),
+    clubs INTEGER NOT NULL CHECK(clubs BETWEEN 1 AND 5),
+    fests INTEGER NOT NULL CHECK(fests BETWEEN 1 AND 5),
+    coding_culture INTEGER NOT NULL CHECK(coding_culture BETWEEN 1 AND 5),
+    sports INTEGER NOT NULL CHECK(sports BETWEEN 1 AND 5),
+    administration INTEGER NOT NULL CHECK(administration BETWEEN 1 AND 5),
+    fees INTEGER NOT NULL CHECK(fees BETWEEN 1 AND 5),
+    location INTEGER NOT NULL CHECK(location BETWEEN 1 AND 5),
+    safety INTEGER NOT NULL CHECK(safety BETWEEN 1 AND 5),
+    overall INTEGER NOT NULL CHECK(overall BETWEEN 1 AND 5),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(senior_id)
+  );
+
+  CREATE INDEX idx_ratings_college ON ratings(college);
+
   CREATE INDEX idx_cutoffs_query ON cutoff_records(route_id, seat_category, quota, closing_rank);
   CREATE INDEX idx_tickets_applicant ON tickets(applicant_id, status);
   CREATE INDEX idx_assignments_respondent ON ticket_assignments(respondent_id, status);
+  CREATE INDEX idx_users_email ON users(email);
+  CREATE INDEX idx_profiles_email ON profiles(email);
 `);
 
 console.log('[Database Init] Seeding mock institutions, programs, and cutoffs...');
@@ -151,18 +198,64 @@ insertCutoff.run('cut-5', 'route-jeemain-2024', 'inst-nitt', 'prog-nitt-ece', 6,
 insertCutoff.run('cut-6', 'route-jeeadv-2024', 'inst-iitb', 'prog-iitb-cse', 6, 'EWS', 'AI', 'Category Rank', 2, 18, now);
 insertCutoff.run('cut-7', 'route-jeeadv-2024', 'inst-iitb', 'prog-iitb-cse', 6, 'OBC-NCL', 'AI', 'Category Rank', 10, 55, now);
 
-console.log('[Database Init] Seeding mock demo profiles...');
-const insertProfile = db.prepare(`
-  INSERT INTO profiles (user_id, display_name, role, verified_status, availability, institution_id, programme_id, admission_year, created_at)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-`);
-insertProfile.run('user-applicant-1', 'Rahul Sharma (Applicant)', 'applicant', 0, 1, null, null, null, now);
+console.log('[Database Init] Seeding mock demo profiles with bcrypt password hashes...');
+const defaultPasswordHash = bcrypt.hashSync('password123', 10);
 
-insertProfile.run('user-student-senior-1', 'Aman Verma (IIT Bombay CSE 3rd Year)', 'student', 1, 1, 'inst-iitb', 'prog-iitb-cse', 2022, now);
+const insertUser = db.prepare(`
+  INSERT INTO users (id, email, password_hash, role, created_at)
+  VALUES (?, ?, ?, ?, ?)
+`);
+
+const insertProfile = db.prepare(`
+  INSERT INTO profiles (
+    user_id, email, password_hash, display_name, role,
+    verified_status, is_verified, availability, college, branch, grad_year,
+    institution_id, programme_id, admission_year, created_at
+  )
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`);
+
+insertUser.run('user-applicant-1', 'applicant@collegeconnect.com', defaultPasswordHash, 'applicant', now);
+insertProfile.run(
+  'user-applicant-1',
+  'applicant@collegeconnect.com',
+  defaultPasswordHash,
+  'Rahul Sharma (Applicant)',
+  'applicant',
+  0,
+  0,
+  1,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  now
+);
+
+insertUser.run('user-student-senior-1', 'senior@iitb.ac.in', defaultPasswordHash, 'student', now);
+insertProfile.run(
+  'user-student-senior-1',
+  'senior@iitb.ac.in',
+  defaultPasswordHash,
+  'Aman Verma (IIT Bombay CSE 3rd Year)',
+  'student',
+  1,
+  1,
+  1,
+  'Indian Institute of Technology Bombay',
+  'Computer Science and Engineering',
+  '2026',
+  'inst-iitb',
+  'prog-iitb-cse',
+  2022,
+  now
+);
 
 console.log('✅ [Database Init] database.sqlite created and seeded successfully!');
 console.log('------------------------------------------------------------');
-console.log('Demo Users Seeded:');
-console.log('1. Applicant:       user-applicant-1       (Rahul Sharma)');
-console.log('2. Verified Senior: user-student-senior-1 (Aman Verma @ IIT Bombay CSE)');
+console.log('Demo Users Seeded (password: password123):');
+console.log('1. Applicant:       applicant@collegeconnect.com / user-applicant-1');
+console.log('2. Verified Senior: senior@iitb.ac.in            / user-student-senior-1');
 console.log('------------------------------------------------------------');

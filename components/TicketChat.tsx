@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, type FormEvent } from 'react';
+import { formatTime } from '@/lib/date';
 
 export interface ChatMessage {
   id: string;
@@ -155,7 +156,7 @@ export default function TicketChat({
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
         </svg>
         <span>
-          <strong>Mutual Anonymity:</strong> Strictly persistent SQLite thread. Only assigned members can access.
+          <strong>Mutual Anonymity:</strong> Encrypted peer thread. Only assigned participants can access.
         </span>
       </div>
 
@@ -192,11 +193,8 @@ export default function TicketChat({
                   <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                     {msg.sender_display_alias}
                   </span>
-                  <span className="text-[10px] text-slate-400">
-                    {new Date(msg.created_at).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
+                  <span suppressHydrationWarning className="text-[10px] text-slate-400">
+                    {formatTime(msg.created_at)}
                   </span>
                 </div>
                 <div

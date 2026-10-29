@@ -7,7 +7,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800 mb-6">
             <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse" />
-            No AI Hallucinations • 100% Deterministic Cutoff Records
+            Verified Cutoff Data • 100% Deterministic Official Records
           </div>
 
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-slate-900 dark:text-white max-w-4xl mx-auto leading-tight">
@@ -53,7 +53,7 @@ export default function LandingPage() {
               <span className="text-emerald-500 font-bold">✓</span> 100% Anonymous Communication
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-emerald-500 font-bold">✓</span> Peer-to-Peer State Machine
+              <span className="text-emerald-500 font-bold">✓</span> Verified Peer Consultations
             </div>
           </div>
         </div>
@@ -112,7 +112,7 @@ export default function LandingPage() {
                 </li>
                 <li className="flex items-start gap-2.5">
                   <span className="text-emerald-500 font-bold shrink-0">•</span>
-                  <strong>Ticket State Machine & Privacy:</strong> Handled as private support tickets with guaranteed anonymity on both sides.
+                  <strong>Private & Anonymous Mentorship:</strong> Handled as private support tickets with guaranteed anonymity on both sides.
                 </li>
               </ul>
             </div>

@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getDemoSession } from '@/lib/auth';
-import { AdmissionsDashboard } from '@/components/AdmissionsDashboard';
+import AdmissionsDashboard from '@/components/AdmissionsDashboard';
 
 export default async function AdmissionsPage() {
   const session = await getDemoSession();

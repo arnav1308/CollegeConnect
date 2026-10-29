@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, type FormEvent } from 'react';
+import { RatingModal } from '@/components/RatingModal';
 
 export interface CollegeRecommendation {
   collegeName: string;
@@ -57,6 +58,15 @@ export default function AdmissionsDashboard({
     Record<string, { available: boolean; institutionId?: string }>
   >({});
 
+  const [collegeRatings, setCollegeRatings] = useState<
+    Record<string, { hasRatings: boolean; totalReviews?: number; ratings?: Record<string, number> }>
+  >({});
+  const [selectedCollegeForRatings, setSelectedCollegeForRatings] = useState<{
+    collegeName: string;
+    totalReviews: number;
+    ratings: Record<string, number>;
+  } | null>(null);
+
   const [selectedCollegeForTicket, setSelectedCollegeForTicket] = useState<{
     item: CollegeRecommendation;
     institutionId: string;
@@ -89,6 +99,39 @@ export default function AdmissionsDashboard({
       })
     );
     setSeniorAvailability(availabilityMap);
+  };
+
+  const fetchRatingsForColleges = async (colleges: CollegeRecommendation[]) => {
+    const ratingsMap: Record<
+      string,
+      { hasRatings: boolean; totalReviews?: number; ratings?: Record<string, number> }
+    > = {};
+
+    await Promise.all(
+      colleges.map(async (col) => {
+        try {
+          const res = await fetch(`/api/colleges/ratings?college=${encodeURIComponent(col.collegeName)}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.hasRatings) {
+              ratingsMap[col.collegeName] = {
+                hasRatings: true,
+                totalReviews: data.total_reviews,
+                ratings: data.ratings,
+              };
+            } else {
+              ratingsMap[col.collegeName] = { hasRatings: false };
+            }
+          } else {
+            ratingsMap[col.collegeName] = { hasRatings: false };
+          }
+        } catch {
+          ratingsMap[col.collegeName] = { hasRatings: false };
+        }
+      })
+    );
+
+    setCollegeRatings(ratingsMap);
   };
 
   const handleCalculateShortlist = async (e: FormEvent) => {
@@ -124,9 +167,12 @@ export default function AdmissionsDashboard({
 
       const list: CollegeRecommendation[] = Array.isArray(data) ? data : data.recommendations || [];
       setRecommendations(list);
-      await checkAvailabilityForColleges(list);
+      await Promise.all([
+        checkAvailabilityForColleges(list),
+        fetchRatingsForColleges(list),
+      ]);
     } catch (err: any) {
-      setErrorMsg(err.message || 'An unexpected error occurred while communicating with Gemini.');
+      setErrorMsg(err.message || 'An unexpected error occurred while generating recommendations.');
     } finally {
       setLoading(false);
     }
@@ -339,7 +385,7 @@ export default function AdmissionsDashboard({
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                   </svg>
-                  Consulting Gemini AI...
+                  <span>Evaluating College Cohorts...</span>
                 </>
               ) : (
                 'Generate Holistic Recommendations'
@@ -436,6 +482,33 @@ export default function AdmissionsDashboard({
                     <p className="mt-4 text-xs text-slate-600 dark:text-slate-400 leading-relaxed border-t border-slate-100 dark:border-slate-800/80 pt-3">
                       {item.holisticReview}
                     </p>
+
+                    {collegeRatings[item.collegeName]?.hasRatings && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const info = collegeRatings[item.collegeName];
+                          if (info && info.ratings) {
+                            setSelectedCollegeForRatings({
+                              collegeName: item.collegeName,
+                              totalReviews: info.totalReviews || 1,
+                              ratings: info.ratings,
+                            });
+                          }
+                        }}
+                        className="w-full mt-3 py-2 px-3 text-xs font-bold text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 dark:hover:bg-amber-900/60 border border-amber-200/80 dark:border-amber-800/80 rounded-xl transition-all flex items-center justify-between shadow-2xs group/rating cursor-pointer"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <span>⭐</span>
+                          <span>View Verified Ratings</span>
+                        </span>
+                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-200/80 dark:bg-amber-900 text-amber-900 dark:text-amber-100">
+                          {collegeRatings[item.collegeName]?.ratings?.overall
+                            ? `${Number(collegeRatings[item.collegeName]?.ratings?.overall).toFixed(1)} / 5`
+                            : `${collegeRatings[item.collegeName]?.totalReviews} reviews`}
+                        </span>
+                      </button>
+                    )}
                   </div>
 
                   <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between min-h-[44px]">
@@ -574,6 +647,15 @@ export default function AdmissionsDashboard({
             </form>
           </div>
         </div>
+      )}
+
+      {selectedCollegeForRatings && (
+        <RatingModal
+          collegeName={selectedCollegeForRatings.collegeName}
+          totalReviews={selectedCollegeForRatings.totalReviews}
+          ratings={selectedCollegeForRatings.ratings}
+          onClose={() => setSelectedCollegeForRatings(null)}
+        />
       )}
     </div>
   );
