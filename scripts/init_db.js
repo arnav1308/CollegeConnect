@@ -244,7 +244,7 @@ insertProfile.run(
   1,
   1,
   1,
-  'Indian Institute of Technology Bombay',
+  'IIT Bombay',
   'Computer Science and Engineering',
   '2026',
   'inst-iitb',

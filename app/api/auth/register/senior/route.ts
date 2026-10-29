@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import db from '@/lib/db';
 import { signToken } from '@/lib/jwt';
+import { getCanonicalCollegeName } from '@/lib/canonical';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,7 +78,8 @@ export async function POST(req: NextRequest) {
 
     const normalizedEmail = email.trim().toLowerCase();
     const cleanName = fullName.trim();
-    const cleanCollege = college.trim();
+    const rawCollege = college.trim();
+    const cleanCollege = getCanonicalCollegeName(rawCollege);
     const cleanBranch = branch.trim();
     const cleanYear = year.trim();
 

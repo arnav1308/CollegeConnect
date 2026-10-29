@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import db from '@/lib/db';
 import { verifyToken, type TokenPayload } from '@/lib/jwt';
+import { getCanonicalCollegeName } from '@/lib/canonical';
 
 export const dynamic = 'force-dynamic';
 
@@ -116,8 +117,10 @@ export async function POST(req: NextRequest) {
           WHERE p.user_id = ?
         `)
         .get(payload.userId) as { canonical_name: string } | undefined;
-      college = inst?.canonical_name || (body.college as string) || 'Indian Institute of Technology Bombay';
+      college = inst?.canonical_name || (body.college as string) || 'IIT Bombay';
     }
+
+    const canonicalCollege = getCanonicalCollegeName(college);
 
     const insertStmt = db.prepare(`
       INSERT INTO ratings (
@@ -152,7 +155,7 @@ export async function POST(req: NextRequest) {
 
     insertStmt.run(
       payload.userId,
-      college,
+      canonicalCollege,
       parsedRatings.academics,
       parsedRatings.faculty,
       parsedRatings.placements,
